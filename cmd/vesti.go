@@ -32,13 +32,20 @@ var vestiCmd = &cobra.Command{
 	Short: "Uzima vesti sa DUNP-a",
 	Long: `Ova komanda salje zahtev serveru za novosti i prikazuje najnovije preuzete`,
 	Run: func(cmd *cobra.Command, args []string) {
-		uzmiVesti()
+
+		tipVesti,_ := cmd.Flags().GetString("tip")
+		if tipVesti != "" {
+		uzmiVesti(tipVesti)
+		} else {
+			uzmiVesti("vesti")
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(vestiCmd)
 
+	vestiCmd.PersistentFlags().String("tip","","Tip novosti za pretragu")
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
@@ -51,8 +58,8 @@ func init() {
 }
 
 
-func uzmiVesti() {
-	url := "http://185.143.45.132/api/novosti/?latest_id=0&tip=vesti"
+func uzmiVesti(tip string) {
+	url := "http://185.143.45.132/api/novosti/?latest_id=0&tip=" + tip
 	res := fetchVesti(url)
 	vesti := []Vest{}
 	if err := json.Unmarshal(res,&vesti); err != nil {
