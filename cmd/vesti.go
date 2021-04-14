@@ -25,7 +25,10 @@ import (
 	"net/http"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
+
+var server = viperEnvVariable("SERVER")
 
 // vestiCmd represents the vesti command
 var vestiCmd = &cobra.Command{
@@ -37,10 +40,12 @@ var vestiCmd = &cobra.Command{
 		tipVesti,_ := cmd.Flags().GetString("tip")
 		departman,_ := cmd.Flags().GetString("departman")
 		smer, _ := cmd.Flags().GetString("smer")
+		id, _ := cmd.Flags().GetString("id")
+	
 		if tipVesti != "" {
-		uzmiVesti(tipVesti,departman,smer)
+		uzmiVesti(id,tipVesti,departman,smer)
 		} else {
-			uzmiVesti("vesti","","")
+			uzmiVesti(id,"vesti","","")
 		}
 	},
 }
@@ -51,6 +56,7 @@ func init() {
 	vestiCmd.PersistentFlags().String("tip","","Tip novosti za pretragu")
 	vestiCmd.PersistentFlags().String("departman","","Departman za koji ce se biti preuzete vesti")
 	vestiCmd.PersistentFlags().String("smer","","Smer za koji ce se biti preuzete vesti")
+	vestiCmd.PersistentFlags().String("id","","id poslednje novosti od koje se vrsi pretraga")
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
@@ -63,8 +69,14 @@ func init() {
 }
 
 
-func uzmiVesti(tip string, departman string, smer string) {
-	url := "http://185.143.45.132/api/novosti/?latest_id=0&tip=" + parsirajTip(tip)
+func uzmiVesti(id string, tip string, departman string, smer string) {
+	var lid string
+	if id == "" {
+		lid = "0"
+	} else {
+		lid = id
+	}
+	url := server + "/api/novosti/?latest_id=" + lid + "&tip=" + parsirajTip(tip)
 	if (departman != "" && proveriTip(tip) && tip == "termini konsultacija") {
 		url = url + "-" + parsirajDepartman(departman)
 	}
@@ -77,7 +89,9 @@ func uzmiVesti(tip string, departman string, smer string) {
 		log.Printf("Greska prilikom dekodiranja novosti")
 	}
 
-	fmt.Println(vesti)
+	for _,vest := range vesti {
+		fmt.Println(formatirajVest(vest))
+	}
 }
 
 func fetchVesti(baseUrl string) []byte {
@@ -145,4 +159,37 @@ func parsirajDepartman(departman string) string {
 	novi := strings.ReplaceAll(departman,"-", "_")
 	finalni := strings.ToUpper(novi)
 	return "DEPARTMAN_ZA_" + finalni
+}
+
+func formatirajVest(vest Vest) string {
+	return vest.Fields.Naslov + " - " + vest.Fields.Datum + "\n" 
+}
+
+func viperEnvVariable(key string) string {
+
+  // SetConfigFile explicitly defines the path, name and extension of the config file.
+  // Viper will use this and not check any of the config paths.
+  // .env - It will search for the .env file in the current directory
+  viper.SetConfigFile(".env")
+
+  // Find and read the config file
+  err := viper.ReadInConfig()
+
+  if err != nil {
+    log.Fatalf("Error while reading config file %s", err)
+  }
+
+  // viper.Get() returns an empty interface{}
+  // to get the underlying type of the key,
+  // we have to do the type assertion, we know the underlying value is string
+  // if we type assert to other type it will throw an error
+  value, ok := viper.Get(key).(string)
+
+  // If the type is a string then ok will be true
+  // ok will make sure the program not break
+  if !ok {
+    log.Fatalf("Invalid type assertion")
+  }
+
+  return value
 }
