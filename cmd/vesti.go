@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"strings"
 
 	"net/http"
 
@@ -34,10 +35,12 @@ var vestiCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		tipVesti,_ := cmd.Flags().GetString("tip")
+		departman,_ := cmd.Flags().GetString("departman")
+		smer, _ := cmd.Flags().GetString("smer")
 		if tipVesti != "" {
-		uzmiVesti(tipVesti)
+		uzmiVesti(tipVesti,departman,smer)
 		} else {
-			uzmiVesti("vesti")
+			uzmiVesti("vesti","","")
 		}
 	},
 }
@@ -46,6 +49,8 @@ func init() {
 	rootCmd.AddCommand(vestiCmd)
 
 	vestiCmd.PersistentFlags().String("tip","","Tip novosti za pretragu")
+	vestiCmd.PersistentFlags().String("departman","","Departman za koji ce se biti preuzete vesti")
+	vestiCmd.PersistentFlags().String("smer","","Smer za koji ce se biti preuzete vesti")
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
@@ -58,8 +63,14 @@ func init() {
 }
 
 
-func uzmiVesti(tip string) {
-	url := "http://185.143.45.132/api/novosti/?latest_id=0&tip=" + tip
+func uzmiVesti(tip string, departman string, smer string) {
+	url := "http://185.143.45.132/api/novosti/?latest_id=0&tip=" + parsirajTip(tip)
+	if (departman != "" && proveriTip(tip) && tip == "termini konsultacija") {
+		url = url + "-" + parsirajDepartman(departman)
+	}
+	if (smer != "" && proveriTip(tip) && tip != "termini konsultacija") {
+		url = url + "-" + parsirajSmer(smer)
+	}
 	res := fetchVesti(url)
 	vesti := []Vest{}
 	if err := json.Unmarshal(res,&vesti); err != nil {
@@ -110,4 +121,28 @@ type Vest struct {
 	Model string `json:"model"`
 	Pk int `json:"pk"`
 	Fields Novost `json:"fields"`
+}
+
+func proveriTip(tip string) bool {
+	if tip != "vesti" && tip != "obavestenja" && tip != "instagram" {
+		return true
+	} 
+	return false
+}
+
+func parsirajTip(tip string) string{
+	novi := strings.ReplaceAll(tip, "-","_")
+	return novi
+}
+
+func parsirajSmer(smer string) string {
+	novi := strings.ReplaceAll(smer, "-","_")
+	finalni := strings.Title(novi)
+	return finalni
+}
+
+func parsirajDepartman(departman string) string {
+	novi := strings.ReplaceAll(departman,"-", "_")
+	finalni := strings.ToUpper(novi)
+	return "DEPARTMAN_ZA_" + finalni
 }
